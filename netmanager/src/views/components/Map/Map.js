@@ -35,7 +35,8 @@ import {
   SAVE_LOCATE_MAP,
   UPDATE_LOCATE_MAP,
   DELETE_LOCATE_MAP,
-  RUN_LOCATE_MODEL
+  RUN_LOCATE_MODEL,
+  RUN_LOCATE_MODEL_V2
 } from 'config/urls/locate';
 
 //download csv and pdf
@@ -283,7 +284,7 @@ class Maps extends React.Component {
     };
     console.log(api_data);
     axios
-      .post(RUN_LOCATE_MODEL, api_data, {
+      .post(RUN_LOCATE_MODEL_V2, api_data, {
         headers: { 'Content-Type': 'application/json' }
       })
       .then((res) => {
@@ -291,22 +292,35 @@ class Maps extends React.Component {
         console.log(myData);
 
         let myPolygons = [];
-
+        let admin_level_one = myData[0]['properties.admin_levels_metadata.admin_level_1']
+        let admin_level_two = myData[0]['properties.admin_levels_metadata.admin_level_2']
+        let admin_level_three = myData[0]['properties.admin_levels_metadata.admin_level_3']
+        let admin_level_four = myData[0]['properties.admin_levels_metadata.admin_level_4']
+        let keys = [admin_level_one, admin_level_two, admin_level_three, admin_level_four]
+        
         try {
           myData.forEach((element) => {
-            if (element['properties.district']) {
+            let firstPair = element['geometry.coordinates'][0][0];
+            let latitude = firstPair[1];
+            let longitude = firstPair[0]
+
+            let values = [element['properties.name_1'],element['properties.name_2'],element['properties.name_3'],element['properties.name_4'] ]
+            console.log(values)
+            console.log(keys)
+            let properties_obj_ = {};
+            keys.forEach((key, index) => {
+                properties_obj_[key] = values[index];
+            });
+            properties_obj_['lat']=latitude
+            properties_obj_['long']=longitude
+            properties_obj_['color']= element['color']
+            properties_obj_['fill_color']= element['fill_color']
+            properties_obj_['type']= element.type
+            
+            if (element['properties.name_1']) {
               myPolygons.push({
                 type: 'Feature',
-                properties: {
-                  district: element['properties.district'],
-                  subcounty: element['properties.subcounty'],
-                  parish: element['properties.parish'],
-                  lat: element['properties.lat'],
-                  long: element['properties.long'],
-                  color: element['color'],
-                  fill_color: element['fill_color'],
-                  type: element.type
-                },
+                properties: properties_obj_,
                 geometry: {
                   type: 'Polygon',
                   coordinates: element['geometry.coordinates']
@@ -315,16 +329,7 @@ class Maps extends React.Component {
             } else {
               myPolygons.push({
                 type: 'Feature',
-                properties: {
-                  district: element.properties.district,
-                  subcounty: element.properties.subcounty,
-                  parish: element.properties.parish,
-                  lat: element.properties.lat,
-                  long: element.properties.long,
-                  color: element.color,
-                  fill_color: element.fill_color,
-                  type: element.type
-                },
+                properties: properties_obj_,
                 geometry: {
                   type: 'Polygon',
                   coordinates: element.geometry.coordinates
@@ -342,21 +347,31 @@ class Maps extends React.Component {
           }
           let toCsv = [];
           if (this.state.selectedOption.value === 'CSV') {
+            
+      
             myData.forEach((element) => {
+              let firstPair = element['geometry.coordinates'][0][0];
+              let latitude = firstPair[0];
+              let longitude = firstPair[1]; 
+
+              let values = [element['properties.name_1'],element['properties.name_2'],element['properties.name_3'],element['properties.name_4'] ]
+              
+              let properties_obj = {};
+              keys.forEach((key, index) => {
+                properties_obj[key] = values[index];
+              });
+              properties_obj['lat']=latitude
+              properties_obj['long']=longitude
+             
+              
               toCsv.push({
                 type: 'Feature',
-                properties: {
-                  district: element['properties.district'],
-                  subcounty: element['properties.subcounty'],
-                  parish: element['properties.parish'],
-                  lat: element['properties.lat'],
-                  long: element['properties.long']
-                }
+                properties: properties_obj
               });
             });
             jsonexport(toCsv, function (err, csv) {
               if (err) return console.log(err);
-              var filename = 'parish_recommendations.csv';
+              var filename = 'recommendations.csv';
               var link = document.createElement('a');
               link.setAttribute(
                 'href',
@@ -376,27 +391,38 @@ class Maps extends React.Component {
               doc.setTextColor(40);
               doc.setFontStyle('normal');
               //doc.addImage(headerImgData, 'JPEG', data.settings.margin.left, 20, 50, 50);
-              doc.text('RECOMMENDED PARISHES', data.settings.margin.left, 50);
+              doc.text('RECOMMENDED ADMINISTRATIVE LEVEL (AREAS)', data.settings.margin.left, 50);
             };
-            var col = ['type', 'District', 'Subcounty', 'Parish', 'lat', 'long'];
+            
+            var colx = ['type', 'Name 1', 'Name 2', 'Name 3', 'Name 4', 'lat', 'long'];
+            let col = ['type'].concat(keys).concat(['lat','long'])
+            console.log(col)
             myPolygons.forEach((element) => {
+              console.log('xxxxxx')
+              console.log(element)
+             
+              let values = [element['properties.name_1'],element['properties.name_2'],element['properties.name_3'],element['properties.name_4'] ]
+             
+              let admin_levels_values = []
+              keys.forEach((item) => {
+                admin_levels_values.push(element.properties[item]);
+              });
+              
               var temp = [
-                element.type,
-                element.properties.district,
-                element.properties.subcounty,
-                element.properties.parish,
+                element.type].concat(admin_levels_values).concat([
                 element.properties.lat,
                 element.properties.long
-              ];
+              ]);
               rows.push(temp);
             });
             doc.autoTable(col, rows, {
               margin: { top: 80 },
               beforePageContent: header
             });
-            doc.save('parish_recommendations.pdf');
+            doc.save('recommendations.pdf');
           }
         } catch (error) {
+          console.log(error)
           console.log('An error occured. Please try again');
         }
       });
@@ -677,7 +703,7 @@ class Maps extends React.Component {
             <LayerGroup>
               {this.state.polygons.map((location) => (
                 <Marker
-                  key={location.parish}
+                  key={location.properties.name_4}
                   position={{
                     lat: location.properties.lat,
                     lng: location.properties.long
@@ -705,16 +731,14 @@ class Maps extends React.Component {
                 >
                   <Popup>
                     <span>
-                      <span>
-                        <b>DISTRICT: </b>
-                        {location.properties.district}, <br />
-                        <b>SUBCOUNTY: </b>
-                        {location.properties.subcounty}, <br />
-                        <b>PARISH: </b>
-                        {location.properties.parish}, <br />
-                        <b>TYPE: </b>
-                        {location.properties.type}
-                      </span>
+                    <ul>
+                      {Object.entries(location.properties).map(([key, value]) => (
+                        <li key={key}>
+                          {key}: {value}
+                        </li>
+                      ))}
+                    </ul>
+                      
                     </span>
                   </Popup>
                 </Marker>
@@ -757,21 +781,21 @@ class Maps extends React.Component {
     }
     this._editableFG = ref;
     if (this.state.polygons) {
+      const excludedKeys = ['color', 'fill_color'];
       for (var i = 0; i < this.state.polygons.length; i++) {
         //let leafletGeoJSON = new L.GeoJSON(this.state.polygons[i]);console.log(leafletGeoJSON);
 
         try {
           let leafletGeoJSON = new L.GeoJSON(this.state.polygons[i], {
-            onEachFeature: function (feature, layer) {
+            onEachFeature: function (feature, layer) {             
+              const keyValueString = Object.entries(feature.properties)
+                .filter(([key]) => !excludedKeys.includes(key))
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ');
+          
+                 
               let popup_string =
-                '<b>DISTRICT: </b>' +
-                feature['properties']['district'] +
-                '<br/><b>SUBCOUNTY: </b>' +
-                feature['properties']['subcounty'] +
-                '<br/><b>PARISH: </b>' +
-                feature['properties']['parish'] +
-                '<br/><b>TYPE: </b>' +
-                feature['properties']['type'];
+              '<p>'+ keyValueString + '</p>' ;
               layer.bindPopup(popup_string);
               layer.on('mouseover', function (e) {
                 this.openPopup();

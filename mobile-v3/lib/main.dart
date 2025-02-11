@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:airqo/src/app/auth/bloc/ForgotPasswordBloc/forgot_password_bloc.dart';
 import 'package:airqo/src/app/auth/bloc/auth_bloc.dart';
@@ -33,34 +34,37 @@ import 'package:path_provider/path_provider.dart';
 import 'package:airqo/src/app/shared/pages/no_internet_banner.dart';
 import 'package:loggy/loggy.dart';
 import 'src/app/shared/repository/hive_repository.dart';
+import 'package:airqo/src/meta/utils/logging.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
 
-  Loggy.initLoggy(
-    logPrinter: const PrettyPrinter(),
-    logOptions: const LogOptions(
-      LogLevel.all,
-      stackTraceLevel: LogLevel.error,
-    ),
-  );
+  initializeLogging();
+
   await dotenv.load(fileName: ".env.prod");
 
   try {
     Directory dir = await getApplicationDocumentsDirectory();
     Hive.init(dir.path);
 
-    runApp(AirqoMobile(
-      authRepository: AuthImpl(),
-      userRepository: UserImpl(),
-      kyaRepository: KyaImpl(),
-      themeRepository: ThemeImpl(),
-      mapRepository: MapImpl(),
-      forecastRepository: ForecastImpl(),
-      googlePlacesRepository: GooglePlacesImpl(),
-      dashboardRepository: DashboardImpl(),
-    ));
+    runZonedGuarded(
+      () {
+        runApp(AirqoMobile(
+          authRepository: AuthImpl(),
+          userRepository: UserImpl(),
+          kyaRepository: KyaImpl(),
+          themeRepository: ThemeImpl(),
+          mapRepository: MapImpl(),
+          forecastRepository: ForecastImpl(),
+          googlePlacesRepository: GooglePlacesImpl(),
+          dashboardRepository: DashboardImpl(),
+        ));
+      },
+      (error, stackTrace) {
+        logError('Unhandled error in application', error, stackTrace);
+      },
+    );
   } catch (e, stackTrace) {
     logError('Failed to initialize application', e, stackTrace);
   }
@@ -119,7 +123,9 @@ class AirqoMobile extends StatelessWidget {
         BlocProvider(
           create: (context) => ConnectivityBloc(connectivity),
         ),
-        BlocProvider(create: (context) => PasswordResetBloc(authRepository: authRepository),
+        BlocProvider(
+          create: (context) =>
+              PasswordResetBloc(authRepository: authRepository),
         )
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(
@@ -129,17 +135,6 @@ class AirqoMobile extends StatelessWidget {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: isLightTheme ? AppTheme.lightTheme : AppTheme.darkTheme,
-            // theme: isLightTheme ? ThemeData(
-            //     splashColor: Colors.transparent,
-            //     highlightColor: Colors.transparent,
-            //     fontFamily: "Inter",
-            //     useMaterial3: true,
-            //     appBarTheme: AppBarTheme(
-            //         scrolledUnderElevation: 0,
-            //         elevation: 0,
-            //         backgroundColor: Theme.of(context).scaffoldBackgroundColor),
-            //     scaffoldBackgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            //     brightness: Brightness.light),
             title: "AirQo",
             home: Decider(),
           );
@@ -178,7 +173,8 @@ class _DeciderState extends State<Decider> {
                     return NavPage();
                   }
                 } else {
-                  return Scaffold(body: Center(child: Text('An Error occured.')));
+                  return Scaffold(
+                      body: Center(child: Text('An Error occured.')));
                 }
               },
             ),
@@ -202,4 +198,3 @@ class _DeciderState extends State<Decider> {
     );
   }
 }
-

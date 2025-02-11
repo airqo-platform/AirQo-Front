@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:loggy/loggy.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class SlackLoggyPrinter extends LoggyPrinter {
   const SlackLoggyPrinter();
@@ -10,10 +11,8 @@ class SlackLoggyPrinter extends LoggyPrinter {
     final level = record.level.toString();
     final message = record.message;
     
-    // Print to console first
     print('$time $level: $message');
     
-    // Send errors to Slack
     if (record.level == LogLevel.error) {
       sendErrorToSlack(
         message,
@@ -26,9 +25,9 @@ class SlackLoggyPrinter extends LoggyPrinter {
 
 
 Future<void> sendErrorToSlack(String message, dynamic error, StackTrace stackTrace) async {
-  final url = 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK';
+  final url = dotenv.env['SLACK_WEBHOOK_URL'];
   
-  await http.post(Uri.parse(url), body: '{"text": "$message"}', headers: {'Content-Type': 'application/json'});
+  await http.post(Uri.parse(url!), body: '{"text": "$message"}', headers: {'Content-Type': 'application/json'});
 }
 
 

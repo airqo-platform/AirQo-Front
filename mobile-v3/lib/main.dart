@@ -35,38 +35,46 @@ import 'package:loggy/loggy.dart';
 import 'src/app/shared/repository/hive_repository.dart';
 import 'package:airqo/src/meta/utils/logging.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-
+Future<void> main() async {
+  // Initialize logging
   initializeLogging();
+  // Initialize bindings in the proper zone.
+  WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env.prod");
+  // Optionally, if you want to make zone errors fatal:
+  // BindingBase.debugZoneErrorsAreFatal = true;
 
-  try {
-    Directory dir = await getApplicationDocumentsDirectory();
-    Hive.init(dir.path);
+  runZonedGuarded(() async {
+    // Load environment variables
+    await dotenv.load(fileName: ".env.prod");
 
-    runZonedGuarded(
-      () {
-        runApp(AirqoMobile(
-          authRepository: AuthImpl(),
-          userRepository: UserImpl(),
-          kyaRepository: KyaImpl(),
-          themeRepository: ThemeImpl(),
-          mapRepository: MapImpl(),
-          forecastRepository: ForecastImpl(),
-          googlePlacesRepository: GooglePlacesImpl(),
-          dashboardRepository: DashboardImpl(),
-        ));
-      },
-      (error, stackTrace) {
-        logError('Unhandled error in application', error, stackTrace);
-      },
-    );
-  } catch (e, stackTrace) {
-    logError('Failed to initialize application', e, stackTrace);
-  }
+    // Initialize Hive
+    await Hive.initFlutter();
+
+    try {
+      // Get application documents directory
+      Directory dir = await getApplicationDocumentsDirectory();
+      Hive.init(dir.path);
+
+      // Run the app
+      runApp(AirqoMobile(
+        authRepository: AuthImpl(),
+        userRepository: UserImpl(),
+        kyaRepository: KyaImpl(),
+        themeRepository: ThemeImpl(),
+        mapRepository: MapImpl(),
+        forecastRepository: ForecastImpl(),
+        googlePlacesRepository: GooglePlacesImpl(),
+        dashboardRepository: DashboardImpl(),
+      ));
+    } catch (e, stackTrace) {
+      // Handle initialization errors
+      logError('Failed to initialize application', e, stackTrace);
+    }
+  }, (error, stackTrace) {
+    // Handle uncaught errors
+    logError('Unhandled error in application', error, stackTrace);
+  });
 }
 
 class AirqoMobile extends StatelessWidget {

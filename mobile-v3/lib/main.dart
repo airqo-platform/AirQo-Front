@@ -36,27 +36,20 @@ import 'src/app/shared/repository/hive_repository.dart';
 import 'package:airqo/src/meta/utils/logging.dart';
 
 Future<void> main() async {
-  // Initialize logging
+
   initializeLogging();
-  // Initialize bindings in the proper zone.
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Optionally, if you want to make zone errors fatal:
-  // BindingBase.debugZoneErrorsAreFatal = true;
-
   runZonedGuarded(() async {
-    // Load environment variables
     await dotenv.load(fileName: ".env.prod");
 
-    // Initialize Hive
     await Hive.initFlutter();
 
     try {
-      // Get application documents directory
+
       Directory dir = await getApplicationDocumentsDirectory();
       Hive.init(dir.path);
 
-      // Run the app
       runApp(AirqoMobile(
         authRepository: AuthImpl(),
         userRepository: UserImpl(),
@@ -68,11 +61,9 @@ Future<void> main() async {
         dashboardRepository: DashboardImpl(),
       ));
     } catch (e, stackTrace) {
-      // Handle initialization errors
       logError('Failed to initialize application', e, stackTrace);
     }
   }, (error, stackTrace) {
-    // Handle uncaught errors
     logError('Unhandled error in application', error, stackTrace);
   });
 }
